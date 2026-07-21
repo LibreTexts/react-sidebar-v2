@@ -1,0 +1,236 @@
+/*
+Tailwind v4 + Davis Design System entry for the injected sidebar widget.
+
+This widget is dropped into an existing LibreTexts page, so it MUST NOT restyle the
+host page. Two deliberate omissions make that safe:
+  - We import Tailwind's `theme` and `utilities` layers only, NOT Preflight. Preflight
+    resets html/body/headings/lists globally, which would wreck the host page.
+  - We import Davis's `theme.css` (design tokens) and `safelist.css` (every component
+    utility class, force-emitted via `@source inline()`), but NOT `base.v4.css` — its
+    `html`/`h1`-`h6` rules are unscoped and would restyle the host page.
+Davis components render styled because their utility classes resolve against the theme
+tokens; they don't need the global base layer.
+*/
+@layer theme, base, components, utilities;
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap");
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "@libretexts/davis-core/theme.css";
+@import "@libretexts/davis-core/safelist.css";
+
+/*
+Preflight would normally supply box-sizing AND `border: 0 solid` for every element;
+scope that minimal reset to our subtree. The border reset is not optional: native form
+controls (<button>, <fieldset>, <input>, ...) carry heavy UA-default borders, and Davis
+components (Button, Drawer.Close, Accordion, ...) render those elements assuming Preflight
+already zeroed them. Without it they show the browser's black outset border, and Davis's
+own `border-*` utilities can't be the sole source of borders. Scoped to `.davis`, so the
+host page is untouched.
+*/
+/* HeadlessUI (Davis Drawer/Dialog) portals its panel to
+   <div id="headlessui-portal-root"> on <body> with a [data-headlessui-portal]
+   wrapper, OUTSIDE the .davis subtree — so the reset must reach it too.
+   In @layer base (below `utilities`) so Davis's own border-* utilities still win.
+   [data-headlessui-portal] is a @headlessui/react 2.2.10 internal attribute. */
+@layer base {
+    .davis, .davis *, .davis *::before, .davis *::after,
+    [data-headlessui-portal], [data-headlessui-portal] *,
+    [data-headlessui-portal] *::before, [data-headlessui-portal] *::after {
+        box-sizing: border-box;
+        border: 0 solid;
+    }
+}
+
+/*
+Atkinson Hyperlegible everywhere in the widget. Overriding the `--font-sans` token
+makes Davis's `font-sans` utilities pick it up; the explicit `font-family` covers plain
+text that inherits from the wrapper. Scoped to `.davis`, so the host page is untouched.
+*/
+.davis,
+[data-headlessui-portal] {
+    --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sans);
+}
+
+/*
+Inheritance alone loses to the host page's element-level rules (e.g. `p`, `label`), so
+some text kept the host font. Re-assert Atkinson on the text-bearing elements directly.
+Icon spans (`mt-icon-*`, `fas`) are deliberately excluded so their glyph fonts survive.
+*/
+.davis p,
+.davis a,
+.davis li,
+.davis label,
+.davis legend,
+.davis button,
+.davis input,
+.davis select,
+.davis textarea,
+.davis h1, .davis h2, .davis h3, .davis h4, .davis h5, .davis h6,
+[data-headlessui-portal] p,
+[data-headlessui-portal] a,
+[data-headlessui-portal] li,
+[data-headlessui-portal] label,
+[data-headlessui-portal] legend,
+[data-headlessui-portal] button,
+[data-headlessui-portal] input,
+[data-headlessui-portal] select,
+[data-headlessui-portal] textarea,
+[data-headlessui-portal] h1, [data-headlessui-portal] h2, [data-headlessui-portal] h3,
+[data-headlessui-portal] h4, [data-headlessui-portal] h5, [data-headlessui-portal] h6 {
+    font-family: var(--font-sans);
+}
+
+/* Neutralize host pseudo-content bleeding onto our form labels. */
+.davis label:after,
+[data-headlessui-portal] label:after {
+    content: initial;
+}
+
+/* ---- Host-rendered Table of Contents (fancytree, injected by LibreTexts.TOC) ---- */
+.fancytree-icon {
+    display: none;
+}
+
+.fancytree-expander {
+    margin-right: 5px;
+}
+
+.davis .fancytree-title {
+    max-width: unset;
+}
+
+/* ---- Sidebar link/tool rows ---- */
+.davis .SidebarItem {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    color: unset;
+    text-decoration: none;
+}
+
+.davis .SidebarItem [class*="mt-icon"],
+.davis .SidebarItem > [class*="fas"] {
+    font-size: x-large;
+}
+
+.davis .SidebarItem img {
+    height: 25px;
+    width: 25px;
+    object-fit: contain;
+}
+
+/* Reference/calculator iframes embedded in the Resources panel. */
+.davis iframe {
+    width: 100%;
+    min-height: 350px;
+    overflow: auto;
+}
+
+.svg-inline--fa {
+    transform: translate(-15px);
+    font-size: x-large;
+}
+
+/* ---- Beeline reader theme buttons (gradient swatches, not a Davis pattern) ---- */
+#doBeeline {
+    display: flex;
+    flex-direction: column;
+}
+
+#SB_bright {
+    background-image: linear-gradient(90deg, #0000F4, #000000, #E93323);
+    color: #ffffff;
+}
+
+#SB_blues {
+    background-image: linear-gradient(90deg, #0000f1, #000000, #891bd5);
+    color: #ffffff;
+}
+
+#SB_night_blues {
+    background-image: linear-gradient(90deg, #56aaff, #ffffff, #9e8dfc);
+    color: #383838;
+}
+
+#SB_gray {
+    background-image: linear-gradient(90deg, #7d7d7d, #000000, #7d7d7d);
+    color: #ffffff;
+}
+
+/* ---- Always-visible vertical tab rail + hamburger (portaled to <body>) ---- */
+.sbHeader {
+    display: none;
+    background-color: #127bc4;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    min-width: 25px;
+    z-index: 1400;
+    justify-content: space-around;
+    box-shadow: 2px 4px 4px #0009;
+}
+
+.sbHeader .top-tabs {
+    color: white;
+    min-width: unset;
+    align-items: center;
+    transform: rotate(180deg);
+    transform-origin: center;
+    font-size: 1rem;
+    font-weight: 300;
+    font-family: "Atkinson Hyperlegible", sans-serif;
+    padding: 0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.sbHeader .top-tabs:hover {
+    border: none;
+    background-color: transparent;
+}
+
+.sbHeader .top-tabs span {
+    writing-mode: vertical-lr;
+    text-transform: capitalize;
+}
+
+#custom_open {
+    width: 43.333px;
+    height: 43.333px;
+    font-size: 15px;
+    cursor: pointer;
+    background-color: #127bc4;
+    color: #e5e5e5;
+    border: none;
+    border-radius: 0px;
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    box-shadow: 1px 1px 1px #0009;
+    z-index: 1400;
+}
+
+@media (min-width: 769px) and (min-height: 500px) {
+    #custom_open {
+        display: none;
+    }
+
+    .sbHeader {
+        display: flex;
+    }
+}
+
+@media screen and (min-width: 769px) and (max-width: 1330px) {
+    #elm-main-content {
+        padding-left: 30px !important;
+    }
+}
+
+@media print {
+    #custom_open, .sbHeader {
+        display: none;
+    }
+}
