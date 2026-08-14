@@ -11,6 +11,7 @@ function noop(name: string) {
 
 const mockLibreTexts: typeof window.LibreTexts = {
   active: {},
+  current: {},
   libraries: {},
   parseURL: (): [string, ...string[]] => ["chem"], // drives the Resources panel's library branch
   TOC: (coverpageURL: string, selector: string) => {
@@ -19,6 +20,7 @@ const mockLibreTexts: typeof window.LibreTexts = {
       el.innerHTML = `<em style="opacity:.6">[mock TOC] ${coverpageURL || "(current page)"}</em>`;
   },
   authenticatedFetch: noop("LibreTexts.authenticatedFetch"),
+  getAPI: async () => ({}),
   getCoverpage: async () => "Mock/Coverpage",
   getSubpages: async () => ({}),
   batch: noop("LibreTexts.batch"),

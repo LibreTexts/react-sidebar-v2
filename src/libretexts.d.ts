@@ -29,9 +29,11 @@ interface LibreTextsActive {
 
 interface LibreTextsAPI {
   active: LibreTextsActive;
+  current: Record<string, unknown>;
   libraries: Record<string, unknown>;
   parseURL(url?: string): [subdomain: string, ...rest: string[]];
   TOC(url: string, selector: string): void;
+  getAPI(url: string, options?: RequestInit): Promise<unknown>;
   getCoverpage(url?: string): Promise<string | undefined>;
   getSubpages(url?: string): Promise<SubpagesResult>;
   authenticatedFetch(

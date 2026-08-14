@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, RadioGroup } from "@libretexts/davis-react";
 import {
   IconArrowsShuffle,
@@ -13,9 +13,121 @@ import { strOr } from "../util/storage";
 import type { PanelProps } from "./Common";
 
 export default function Tools(props: PanelProps) {
+  const remixerLinkSetupHasRun = useRef<boolean>(false);
   const [glossarySource, setGlossarySource] = useState(
     strOr(localStorage.getItem("glossarizerType"), "textbook"),
   );
+
+  const [currentSubdomain, setCurrentSubdomain] = useState<string | null>(null);
+  const [currentCoverPage, setCurrentCoverPage] = useState<any>(null);
+  const [projectID, setProjectID] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (remixerLinkSetupHasRun.current) {
+      return;
+    }
+  
+    if (!LibreTexts) {
+      console.error("[Tools]: LibreTexts global object not found.");
+      return; // We won't set the ref to true here in case LibreTexts object just isn't loaded yet; we want to try again next render.
+    }
+
+    getBookProjectID().then((id) => {
+      setProjectID(id);
+      remixerLinkSetupHasRun.current = true;
+    }).catch((e) => {
+      console.error(`[Tools]: ${e.toString()}`);
+      remixerLinkSetupHasRun.current = true; // Don't keep trying if there's an error, it's unlikely to self recover
+    });
+
+  }, [remixerLinkSetupHasRun.current]);
+
+
+  const loadCoverpage = async (): Promise<boolean> => {
+    const [subdomain] = LibreTexts.parseURL();
+    if (!subdomain) {
+      return false; // couldn't parse subdomain, can't proceed
+    }
+
+    /**
+     * Try to reuse the current coverpage info if it's already set on the LibreTexts.current object
+     * e.g. by libreExportButtons.js or other scripts.
+     */
+    if (LibreTexts.current.coverpage) {
+      setCurrentSubdomain(subdomain);
+      setCurrentCoverPage(LibreTexts.current.coverpage);
+      return true;
+    }
+
+    const coverPath = await LibreTexts.getCoverpage();
+    if (!coverPath) {
+      return false; // couldn't find coverpage path, can't proceed
+    }
+
+    const coverPageInfo = await LibreTexts.getAPI(`https://${subdomain}.libretexts.org/${coverPath}`);
+    if (!coverPageInfo) {
+      return false;
+    }
+
+    setCurrentSubdomain(subdomain);
+    setCurrentCoverPage(coverPageInfo);
+
+    return true;
+  };
+
+  const getBookProjectID = async (): Promise<string | null> => {
+    try {
+      if (!currentCoverPage) {
+        await loadCoverpage();
+      }
+
+      if (!currentSubdomain || !currentCoverPage || !currentCoverPage.id) {
+        return null;
+      }
+
+      // Check local storage for projectID first
+      const fromLocalStorage = localStorage.getItem(`projectID-${currentSubdomain}-${currentCoverPage.id}`);
+      if (fromLocalStorage) {
+        return fromLocalStorage;
+      }
+
+      // If not found in local storage, try to fetch from conductor
+      const conductorRes = await fetch(
+        `https://commons.libretexts.org/api/v1/project/find-by-book/${currentSubdomain}-${currentCoverPage.id}`,
+        { headers: { 'X-Requested-With': 'XMLHttpRequest' } },
+      );
+
+      if (!conductorRes.ok) {
+        console.error(`[ExportButtons]: Failed to fetch project ID from conductor. Status: ${conductorRes.status}`);
+        return null;
+      }
+
+      const projectData = await conductorRes.json();
+      const projectID = projectData.projectID;
+
+      if (!projectID) {
+        console.error(`[ExportButtons]: Project ID not found in conductor response.`);
+        return null;
+      }
+
+      // Save projectID to local storage
+      localStorage.setItem(`projectID-${currentSubdomain}-${currentCoverPage.id}`, projectID);
+      return projectID;
+    } catch (e: any) {
+      console.error(`[ExportButtons]: ${e.toString()}`);
+      return null;
+    }
+  };
+
+  function openRemixer() {
+    if (!projectID) {
+      console.error("Project ID not found. Cannot open Remixer.");
+      return;
+    }
+
+    const remixerURL = `https://commons.libretexts.org/project/${projectID}?source=library`;
+    window.open(remixerURL, "_blank");
+  }
 
   return (
     <div>
@@ -102,28 +214,6 @@ export default function Tools(props: PanelProps) {
       />
     </div>
   );
-}
-
-async function openRemixer() {
-  localStorage.setItem(
-    "RemixerLastText",
-    JSON.stringify({
-      title: document.getElementById("titleHolder")?.innerText ?? "",
-      url: window.location.href,
-    }),
-  );
-  const coverpage = await LibreTexts.getCoverpage();
-  if (coverpage) {
-    const searchParams = new URLSearchParams({
-      remixURL: `${window.location.protocol}//${window.location.host}/${coverpage}`,
-      autoLoad: "true",
-    });
-    window.location.assign(
-      `/Under_Construction/Development_Details/OER_Remixer?${searchParams.toString()}`,
-    );
-    return;
-  }
-  window.location.assign("/Under_Construction/Development_Details/OER_Remixer");
 }
 
 function AutoAttribution() {
