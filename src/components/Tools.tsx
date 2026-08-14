@@ -32,6 +32,14 @@ export default function Tools(props: PanelProps) {
       return; // We won't set the ref to true here in case LibreTexts object just isn't loaded yet; we want to try again next render.
     }
 
+    // See if the projectID is already set on the LibreTexts.current object (e.g. by libreExportButtons.js or other scripts)
+    if (LibreTexts.current.projectID) {
+      setProjectID(String(LibreTexts.current.projectID));
+      remixerLinkSetupHasRun.current = true;
+      return;
+    }
+
+    // If not, we'll try to look it up ourselves using the coverpage info. This is a fallback in case the projectID isn't set on the LibreTexts.current object.
     getBookProjectID().then((id) => {
       setProjectID(id);
       remixerLinkSetupHasRun.current = true;
@@ -120,12 +128,15 @@ export default function Tools(props: PanelProps) {
   };
 
   function openRemixer() {
-    if (!projectID) {
+    // Try to use the projectID from state, then from LibreTexts.current, then from localStorage as a fallback
+    // This is a worst-case scenario fallback in case the projectID isn't set on the LibreTexts.current object and we haven't been able to fetch it yet.
+    let projectIDToUse = projectID ?? LibreTexts.current.projectID ?? localStorage.getItem(`projectID-${currentSubdomain}-${currentCoverPage?.id}`);
+    if (!projectIDToUse) {
       console.error("Project ID not found. Cannot open Remixer.");
       return;
     }
 
-    const remixerURL = `https://commons.libretexts.org/project/${projectID}?source=library`;
+    const remixerURL = `https://commons.libretexts.org/project/${projectIDToUse}?source=library`;
     window.open(remixerURL, "_blank");
   }
 
