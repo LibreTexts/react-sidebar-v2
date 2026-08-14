@@ -1,12 +1,18 @@
+import {readFileSync} from 'node:fs';
 import {defineConfig} from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
+// The bundle is named for the package version so hosts can pin a release and
+// bust caches on upgrade. semantic-release writes this field before tagging,
+// so a build after a release picks up the new version automatically.
+const {version} = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
+
 /*
 The widget ships as a single self-mounting IIFE that LibreTexts injects via a
 <script> tag: CSS is inlined into the JS (no separate stylesheet) and React is
-bundled in (no externals). `npm run build` produces build/sidebar.min.js.
+bundled in (no externals). `npm run build` produces build/sidebar-<version>.min.js.
 `npm run dev` serves index.html — a standalone harness that stubs the host
 globals — with React Fast Refresh.
 */
@@ -35,7 +41,7 @@ export default defineConfig(({command}) => ({
             entry: 'src/pages/index.tsx',
             formats: ['iife'],
             name: 'LibreTextsSidebar',
-            fileName: () => 'sidebar.min.js',
+            fileName: () => `sidebar-${version}.min.js`,
         },
     },
 }));
