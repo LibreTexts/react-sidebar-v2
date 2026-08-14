@@ -103,5 +103,5 @@ export function TableOfContents(props: TableOfContentsProps) {
     LibreTexts.TOC(props.coverpageURL, `#${hash}`);
   }, [props.coverpageURL]);
 
-  return <div id={hash} />;
+  return <div id={hash} className="text-black!" />; // Fancytree uses off-gray text - override to black for better contrast in the sidebar.
 }
