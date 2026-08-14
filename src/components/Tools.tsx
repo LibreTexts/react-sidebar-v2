@@ -136,7 +136,7 @@ export default function Tools(props: PanelProps) {
       return;
     }
 
-    const remixerURL = `https://commons.libretexts.org/project/${projectIDToUse}?source=library`;
+    const remixerURL = `https://commons.libretexts.org/projects/${projectIDToUse}/remixer?source=library`;
     window.open(remixerURL, "_blank");
   }
 
