@@ -184,6 +184,7 @@ export default function Tools(props: PanelProps) {
             variant="primary"
             icon={<IconCode />}
             as="a"
+            target="_blank"
             href={`/Under_Construction/Sandboxes/Henry/Get_Contents?${document.getElementById("IDHolder")?.innerText}`}
             fullWidth
           >
