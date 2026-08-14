@@ -11,10 +11,28 @@ host page. Two deliberate omissions make that safe:
 Davis components render styled because their utility classes resolve against the theme
 tokens; they don't need the global base layer.
 */
-@layer theme, base, components, utilities;
+/*
+Cascade layers, and why `important` is on the utilities import.
+
+The host library page's CSS is UNLAYERED. Per the cascade, unlayered author
+declarations beat every layered one regardless of specificity, so a host rule as
+weak as `a {}` outranked every Tailwind/Davis utility and the widget arrived on a
+library page half-restyled. Marking the utilities layer `important` fixes that:
+important declarations invert the layer order, and important-layered outranks
+important-unlayered, so our utilities now sit above anything the host page can
+express, `!important` included.
+
+The inversion has a consequence. Our own overrides used to win by being unlayered
+and normal-weight; against important utilities they now lose. Anything that must
+beat a utility therefore lives in `@layer overrides` (declared FIRST, so it wins
+the important inversion) and is marked `!important`. Rules that compete with no
+utility stay unlayered and normal-weight below — notably the iframe sizing, which
+must keep losing to iframe-resizer's inline height.
+*/
+@layer overrides, theme, base, components, utilities;
 @import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap");
 @import "tailwindcss/theme.css" layer(theme);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss/utilities.css" layer(utilities) important;
 @import "@libretexts/davis-core/theme.css";
 @import "@libretexts/davis-core/safelist.css";
 
@@ -30,15 +48,49 @@ host page is untouched.
 /* HeadlessUI (Davis Drawer/Dialog) portals its panel to
    <div id="headlessui-portal-root"> on <body> with a [data-headlessui-portal]
    wrapper, OUTSIDE the .davis subtree — so the reset must reach it too.
-   In @layer base (below `utilities`) so Davis's own border-* utilities still win.
-   [data-headlessui-portal] is a @headlessui/react 2.2.10 internal attribute. */
-@layer base {
-    .davis, .davis *, .davis *::before, .davis *::after,
-    [data-headlessui-portal], [data-headlessui-portal] *,
-    [data-headlessui-portal] *::before, [data-headlessui-portal] *::after {
-        box-sizing: border-box;
-        border: 0 solid;
-    }
+   [data-headlessui-portal] is a @headlessui/react 2.2.10 internal attribute.
+
+   UNLAYERED on purpose. In @layer base this reset lost to the host page's own
+   unlayered `button { border: 2px outset }`-style rules and the UA borders came
+   back. Unlayered, `.davis *` (0,1,0) outranks a bare element selector, while
+   Davis's border-* utilities still win because they are important. */
+.davis, .davis *, .davis *::before, .davis *::after,
+[data-headlessui-portal], [data-headlessui-portal] *,
+[data-headlessui-portal] *::before, [data-headlessui-portal] *::after {
+    box-sizing: border-box;
+    border: 0 solid;
+}
+
+/*
+Preflight's form-control reset, scoped. Davis sizes its controls with inline-axis
+utilities only (Button is `min-h-10 px-6`, no padding-block), so a host rule like
+`button { padding: 14px }` had nothing to compete with and silently inflated every
+button. Preflight normally zeroes this; since we can't ship Preflight, mirror the
+part of it that Davis depends on. Deliberately narrow: it covers form controls, not
+`.davis *`, because the host-rendered fancytree TOC lives inside our subtree and
+needs its own margins and padding to stay indented.
+*/
+.davis button, .davis input, .davis select, .davis textarea,
+.davis fieldset, .davis legend, .davis optgroup,
+[data-headlessui-portal] button, [data-headlessui-portal] input,
+[data-headlessui-portal] select, [data-headlessui-portal] textarea,
+[data-headlessui-portal] fieldset, [data-headlessui-portal] legend,
+[data-headlessui-portal] optgroup {
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    text-transform: none;
+    background-color: transparent;
+}
+
+/* Preflight also flattens heading sizing; Davis sets its own via utilities. */
+.davis h1, .davis h2, .davis h3, .davis h4, .davis h5, .davis h6,
+[data-headlessui-portal] h1, [data-headlessui-portal] h2, [data-headlessui-portal] h3,
+[data-headlessui-portal] h4, [data-headlessui-portal] h5, [data-headlessui-portal] h6 {
+    font-size: inherit;
+    font-weight: inherit;
 }
 
 /*
@@ -50,6 +102,9 @@ text that inherits from the wrapper. Scoped to `.davis`, so the host page is unt
 [data-headlessui-portal] {
     --font-sans: "Atkinson Hyperlegible", ui-sans-serif, system-ui, -apple-system, sans-serif;
     font-family: var(--font-sans);
+    /* Preflight's `html { line-height: 1.5 }`, scoped. Without it a host rule on a
+       bare `div` inherits down and stretches every unstyled row in the panel. */
+    line-height: 1.5;
 }
 
 /*
@@ -81,6 +136,20 @@ Icon spans (`mt-icon-*`, `fas`) are deliberately excluded so their glyph fonts s
     font-family: var(--font-sans);
 }
 
+/*
+Same problem for text color and size: `p, li { color: #b00020; font-size: 19px }` on a
+library page hits our paragraphs directly, and no Davis utility competes for those
+properties on plain text. Hand them back to inheritance, so panel text follows the Davis
+tokens on the wrapper. Anywhere Davis does set a text utility it still wins (important).
+Excludes `a`, whose color is carried by Button variants and inline styles.
+*/
+.davis p, .davis li, .davis label, .davis legend,
+[data-headlessui-portal] p, [data-headlessui-portal] li,
+[data-headlessui-portal] label, [data-headlessui-portal] legend {
+    color: inherit;
+    font-size: inherit;
+}
+
 /* Neutralize host pseudo-content bleeding onto our form labels. */
 .davis label:after,
 [data-headlessui-portal] label:after {
@@ -100,17 +169,21 @@ Icon spans (`mt-icon-*`, `fas`) are deliberately excluded so their glyph fonts s
     max-width: unset;
 }
 
-/* ---- Sidebar link/tool rows ---- */
-.davis .SidebarItem {
-    padding-top: 5px;
-    padding-bottom: 5px;
-    color: unset;
-    text-decoration: none;
-}
+/* ---- Sidebar link/tool rows ----
+   In `overrides` because these deliberately beat Davis Button's own padding,
+   text-color and icon-size utilities, which are now important. */
+@layer overrides {
+    .davis .SidebarItem {
+        padding-top: 5px !important;
+        padding-bottom: 5px !important;
+        color: unset !important;
+        text-decoration: none !important;
+    }
 
-.davis .SidebarItem [class*="mt-icon"],
-.davis .SidebarItem > [class*="fas"] {
-    font-size: x-large;
+    .davis .SidebarItem [class*="mt-icon"],
+    .davis .SidebarItem > [class*="fas"] {
+        font-size: x-large !important;
+    }
 }
 
 .davis .SidebarItem img {
@@ -119,11 +192,100 @@ Icon spans (`mt-icon-*`, `fas`) are deliberately excluded so their glyph fonts s
     object-fit: contain;
 }
 
-/* Reference/calculator iframes embedded in the Resources panel. */
-.davis iframe {
+/* Reference/calculator iframes embedded in the Resources panel. The Drawer panel
+   is portaled to [data-headlessui-portal] on <body>, OUTSIDE the .davis subtree,
+   so the sizing must be scoped there too — otherwise these iframes fall back to
+   the UA default 300x150 and are unusable. Height is generous by design: these
+   embeds (periodic table, physical-constants tables, calculators) need vertical
+   room. iframe-resizer sets its own inline height on the periodic table, which
+   wins over this floor. */
+.davis iframe,
+[data-headlessui-portal] iframe {
     width: 100%;
-    min-height: 350px;
+    height: 65vh;
+    /* min() so the floor cannot exceed the panel on a short viewport (landscape
+       phone), where a flat 420px would push the embed past the drawer. */
+    min-height: min(420px, 60vh);
+    border: 0;
     overflow: auto;
+}
+
+/* The periodic table is the one embed whose content does not reflow — squeezed to
+   a phone-width frame it simply clips, putting half the table out of reach. Give it
+   a width floor so `.sidebarDrawerBody`'s overflow-x scrolls to the rest instead.
+   No effect on desktop, where the Resources drawer is 60rem. The other embeds
+   (Desmos, the adaptView tables) are responsive and are left to fill the frame. */
+.periodicTable {
+    min-width: 640px;
+}
+
+/*
+Drawer sizing, and the mobile floor under it.
+
+Davis's `drawer` recipe maps size="lg" to a flat `w-[32rem]` (512px) with NO
+responsive variants, and the panel is `position: fixed`, so the `max-w-full` on
+its parent positioning div does not constrain it. Below ~512px the panel's right
+edge — and with it the `justify-between` Drawer.Close — falls off screen and the
+drawer becomes impossible to dismiss.
+
+`.sidebarDrawer` (on every panel) is the cure: max-width beats width regardless of
+importance, so one declaration caps both the w-[32rem] default and the Resources
+widening below. The 3rem gutter leaves a strip of backdrop exposed, which HeadlessUI
+already wires to close — a second escape hatch beside the X.
+
+`.resourcesDrawer` still widens the Resources panel so its embedded tools get
+horizontal room (the periodic table especially); the shared cap reins it back in on
+narrow viewports, so it no longer needs a max-width of its own.
+
+In `overrides` + important to beat the size utility, per the layer note at the top.
+*/
+@layer overrides {
+    .sidebarDrawer {
+        max-width: calc(100vw - 3rem) !important;
+    }
+
+    .resourcesDrawer {
+        width: min(92vw, 60rem) !important;
+    }
+}
+
+/*
+Rail allowance on the drawer's left edge.
+
+The rail (z-index 1400) deliberately shows through the drawer's left edge, so the
+body and the header's Select both need to start clear of it — that is what the old
+`pl-10` / `pl-4` utilities did. But the rail is display:none below the breakpoint
+repeated here, so on a phone that padding reserved space for something absent and
+left content sitting 40px/24px off-center in an already narrow panel.
+
+So: symmetric by default (1.5rem matches Davis's own px-6), rail allowance added
+back only under the SAME query that reveals the rail — keep the two in sync if
+either ever moves. The query is deliberately not width-only: a landscape phone
+under 500px tall gets the hamburger, not the rail, and must be treated as mobile.
+
+overflow-x on the body keeps wide embeds (again, the periodic table) scrolling
+inside the panel instead of overflowing a now hard-capped width. Davis's
+Drawer.Body handles only overflow-y.
+*/
+@layer overrides {
+    .sidebarDrawerBody {
+        padding-left: 1.5rem !important;
+        overflow-x: auto !important;
+    }
+
+    .sidebarDrawerSelect {
+        padding-left: 0 !important;
+    }
+
+    @media (min-width: 769px) and (min-height: 500px) {
+        .sidebarDrawerBody {
+            padding-left: 2.5rem !important;
+        }
+
+        .sidebarDrawerSelect {
+            padding-left: 1rem !important;
+        }
+    }
 }
 
 .svg-inline--fa {
@@ -137,24 +299,57 @@ Icon spans (`mt-icon-*`, `fas`) are deliberately excluded so their glyph fonts s
     flex-direction: column;
 }
 
-#SB_bright {
-    background-image: linear-gradient(90deg, #0000F4, #000000, #E93323);
-    color: #ffffff;
+/* These render as Davis Buttons (variant="secondary"), so the swatch gradient and
+   its legible text color both fight that variant's own utilities: `overrides`. */
+@layer overrides {
+    #SB_bright {
+        background-image: linear-gradient(90deg, #0000F4, #000000, #E93323) !important;
+        color: #ffffff !important;
+    }
+
+    #SB_blues {
+        background-image: linear-gradient(90deg, #0000f1, #000000, #891bd5) !important;
+        color: #ffffff !important;
+    }
+
+    #SB_night_blues {
+        background-image: linear-gradient(90deg, #56aaff, #ffffff, #9e8dfc) !important;
+        color: #383838 !important;
+    }
+
+    #SB_gray {
+        background-image: linear-gradient(90deg, #7d7d7d, #000000, #7d7d7d) !important;
+        color: #ffffff !important;
+    }
 }
 
-#SB_blues {
-    background-image: linear-gradient(90deg, #0000f1, #000000, #891bd5);
-    color: #ffffff;
-}
+/*
+Stacking: lift the Drawer above the library page's chrome.
 
-#SB_night_blues {
-    background-image: linear-gradient(90deg, #56aaff, #ffffff, #9e8dfc);
-    color: #383838;
-}
+Davis sizes the Drawer panel with `z-50`, and HeadlessUI's portal root is created
+as a plain `position: static` div, so the panel competed as 50 against the host
+page's own fixed nav (`z-index: 990`) and the nav striped across the drawer. z-index
+only orders siblings within a stacking context, so the fix belongs on the container,
+not the panel: position the portal root and give it a z-index in the same tier as the
+rail below. Everything HeadlessUI renders — backdrop, panel, nested popovers — then
+rides above the host chrome as one unit, whatever z-index Davis puts inside.
 
-#SB_gray {
-    background-image: linear-gradient(90deg, #7d7d7d, #000000, #7d7d7d);
-    color: #ffffff;
+1399 sits deliberately just UNDER the rail's 1400: the drawer has to clear the host
+page's chrome but stay behind the rail, which is meant to show through along the
+drawer's left edge (that is what `Drawer.Body`'s `pl-10` reserves room for).
+
+`position: relative` is safe here: the root carries no offsets, and only transform,
+filter and contain would break the fixed positioning of the panel inside it. In
+`overrides` + important because the utilities layer is important now.
+
+If a library page ever ships chrome above 1399, raise this and the rail's 1400
+together — the rail and the drawer are one visual unit and must stay adjacent.
+*/
+@layer overrides {
+    #headlessui-portal-root {
+        position: relative !important;
+        z-index: 1399 !important;
+    }
 }
 
 /* ---- Always-visible vertical tab rail + hamburger (portaled to <body>) ---- */
@@ -166,6 +361,9 @@ Icon spans (`mt-icon-*`, `fas`) are deliberately excluded so their glyph fonts s
     top: 0;
     left: 0;
     height: 100vh;
+    /* dvh tracks the mobile URL bar; the vh above is the fallback for browsers
+       that do not know the unit and will ignore this line. */
+    height: 100dvh;
     min-width: 25px;
     z-index: 1400;
     justify-content: space-around;

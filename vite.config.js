@@ -32,7 +32,7 @@ export default defineConfig(({command}) => ({
         // folds it into the single sidebar.min.js. No stray .css must escape.
         cssCodeSplit: false,
         lib: {
-            entry: 'src/pages/index.jsx',
+            entry: 'src/pages/index.tsx',
             formats: ['iife'],
             name: 'LibreTextsSidebar',
             fileName: () => 'sidebar.min.js',

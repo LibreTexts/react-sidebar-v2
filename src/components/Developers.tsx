@@ -1,4 +1,4 @@
-import { TableOfContents } from "./Common.jsx";
+import { TableOfContents, type PanelProps } from "./Common";
 import { Accordion, Button } from "@libretexts/davis-react";
 import {
   IconBook,
@@ -8,7 +8,7 @@ import {
   IconRestore,
 } from "@tabler/icons-react";
 
-export default function Developers(props) {
+export default function Developers(_props: PanelProps) {
   let tags = document.getElementById("pageTagsHolder")?.innerText || "";
   const allowMatter =
     tags.includes("coverpage:yes") ||
@@ -39,7 +39,7 @@ export default function Developers(props) {
             variant="primary"
             icon={<IconEye />}
             onClick={() => {
-              document.querySelectorAll("dd").forEach((el) => {
+              document.querySelectorAll<HTMLElement>("dd").forEach((el) => {
                 el.style.display = "";
               });
             }}
@@ -69,16 +69,20 @@ export default function Developers(props) {
             icon={<IconHash />}
             onClick={() => {
               LibreTexts.getSubpages().then((data) => {
-                data = JSON.stringify(data).match(/"id":"\d+"/g);
-                if (data) {
-                  data = data.map((e) => e.match(/"id":"(\d+)"/)[1]);
+                const idMatches = JSON.stringify(data).match(/"id":"\d+"/g);
+                let ids: string[];
+                if (idMatches) {
+                  ids = idMatches
+                    .map((e) => e.match(/"id":"(\d+)"/)?.[1])
+                    .filter((id): id is string => id != null);
                 } else {
-                  data = [document.getElementById("IDHolder")?.innerText];
+                  const holderId = document.getElementById("IDHolder")?.innerText;
+                  ids = holderId ? [holderId] : [];
                 }
-                let [subdomain] = LibreTexts.parseURL();
-                data = data.map((e) => subdomain + "-" + e);
-                navigator.clipboard.writeText(data.join(", "));
-                console.log(data.join(", "));
+                const [subdomain = ""] = LibreTexts.parseURL();
+                const prefixed = ids.map((e) => subdomain + "-" + e);
+                navigator.clipboard.writeText(prefixed.join(", "));
+                console.log(prefixed.join(", "));
                 alert("Copied pageIDs to the clipboard");
               });
             }}
@@ -104,13 +108,14 @@ export default function Developers(props) {
               }}
               fullWidth
             >
-            Generate Front/Back Matter
-          </Button>
+              Generate Front/Back Matter
+            </Button>
           </li>
         ) : null}
         <li>
           <Button
             variant="primary"
+            as="a"
             icon={<IconMath />}
             href="https://chem.libretexts.org/Under_Construction/Development_Details/Misc_Pages/Realtime_MathJax"
             fullWidth

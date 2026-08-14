@@ -2,19 +2,20 @@ import "../Sidebar.css";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { DavisProvider, Drawer, Select, Stack } from "@libretexts/davis-react";
-import Contents from "./Contents.jsx";
-import Readability from "./Readability.jsx";
-import Resources from "./Resources.jsx";
-import Tools from "./Tools.jsx";
-import Developers from "./Developers.jsx";
+import Contents from "./Contents";
+import Readability from "./Readability";
+import Resources from "./Resources";
+import Tools from "./Tools";
+import Developers from "./Developers";
+import type { ToggleDrawer } from "./Common";
 
 /*
 This is your React Hook.
 Your top-level logic should go here, but other parts should be handled by sub-components.
 */
-export default function SidebarComponent(props) {
-  const [openPanel, setOpenPanel] = useState();
-  const [lastPanel, setLastPanel] = useState();
+export default function SidebarComponent() {
+  const [openPanel, setOpenPanel] = useState<string | undefined>(undefined);
+  const [lastPanel, setLastPanel] = useState<string | undefined>(undefined);
 
   useEffect(function () {
     // initialization
@@ -22,7 +23,7 @@ export default function SidebarComponent(props) {
     const marginSize = localStorage.getItem("LT_pageWidth");
     if (textSize)
       document
-        .querySelectorAll(
+        .querySelectorAll<HTMLElement>(
           "section.mt-content-container p, section.mt-content-container li",
         )
         .forEach((el) => {
@@ -30,7 +31,7 @@ export default function SidebarComponent(props) {
         });
     if (marginSize)
       document
-        .querySelectorAll("section.mt-content-container")
+        .querySelectorAll<HTMLElement>("section.mt-content-container")
         .forEach((el) => {
           el.style.marginLeft = marginSize + "vw";
           el.style.marginRight = marginSize + "vw";
@@ -44,7 +45,7 @@ export default function SidebarComponent(props) {
   // Curried so host code can call LibreTexts.active.sidebarToggleDrawer('contents')(event).
   // The Davis Drawer (a Headless UI Dialog) owns Escape / outside-click close itself, so
   // the old hand-rolled keydown handling is gone.
-  const toggleDrawer = (panel) => () => {
+  const toggleDrawer: ToggleDrawer = (panel) => () => {
     setOpenPanel(panel || undefined);
     if (panel) setLastPanel(panel);
   };
@@ -75,6 +76,11 @@ export default function SidebarComponent(props) {
         onClose={() => setOpenPanel(undefined)}
         side="left"
         size="lg"
+        className={
+          openPanel === "resources"
+            ? "sidebarDrawer resourcesDrawer"
+            : "sidebarDrawer"
+        }
       >
         <Drawer.Header>
           <Stack
@@ -88,7 +94,7 @@ export default function SidebarComponent(props) {
               label="Panel"
               labelClassName="sr-only"
               placeholder="Select panel"
-              className="flex-1 pl-4"
+              className="flex-1 sidebarDrawerSelect"
               value={openPanel || ""}
               onChange={(event) => toggleDrawer(event.target.value)(event)}
               options={tabs.map((tab) => ({
@@ -96,10 +102,10 @@ export default function SidebarComponent(props) {
                 label: tab.charAt(0).toUpperCase() + tab.slice(1),
               }))}
             />
-            <Drawer.Close aria-label="Close Sidebar panel" className="mt-1"/>
+            <Drawer.Close aria-label="Close Sidebar panel" className="mt-1 cursor-pointer!" />
           </Stack>
         </Drawer.Header>
-        <Drawer.Body className="pl-10">{list()}</Drawer.Body>
+        <Drawer.Body className="sidebarDrawerBody">{list()}</Drawer.Body>
       </Drawer>
       {createPortal(
         <>

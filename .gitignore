@@ -143,9 +143,11 @@ vite.config.ts.timestamp-*
 .vite/
 
 # Agents
-.agents/
-.claude/
+.agents
+.claude
+.codegraph
 CLAUDE.md
+.mcp.json
 
 # Build output
 dist/
