@@ -1,7 +1,6 @@
 import { TableOfContents, type PanelProps } from "./Common";
-import { Accordion, Button } from "@libretexts/davis-react";
+import { Accordion, Button, Text } from "@libretexts/davis-react";
 import {
-  IconBook,
   IconEye,
   IconHash,
   IconMath,
@@ -91,27 +90,6 @@ export default function Developers(_props: PanelProps) {
             Copy PageIDs
           </Button>
         </li>
-        {allowMatter ? (
-          <li>
-            <Button
-              variant="primary"
-              icon={<IconBook />}
-              onClick={() => {
-                try {
-                  LibreTexts.batch(
-                    window.location.href,
-                    "&createMatterOnly=true",
-                  );
-                } catch (e) {
-                  console.error("MATTER GENERATION ERROR:", e);
-                }
-              }}
-              fullWidth
-            >
-              Generate Front/Back Matter
-            </Button>
-          </li>
-        ) : null}
         <li>
           <Button
             variant="primary"
@@ -120,9 +98,16 @@ export default function Developers(_props: PanelProps) {
             href="https://chem.libretexts.org/Under_Construction/Development_Details/Misc_Pages/Realtime_MathJax"
             fullWidth
           >
-            RealTime Mathjax
+            RealTime MathJax
           </Button>
         </li>
+        {allowMatter ? (
+          <li>
+            <Text>
+              Matter generation has moved to the Remixer. Please visit the Remixer to generate front/back matter.
+            </Text>
+          </li>
+        ) : null}
       </ul>
     </div>
   );
